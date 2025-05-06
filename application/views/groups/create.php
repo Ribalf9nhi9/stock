@@ -20,15 +20,15 @@
       <div class="row">
         <div class="col-md-12 col-xs-12">
           
-          <?php if($this->session->flashdata('success')): ?>
+          <?php if($this->session->flashdata("success")): ?>
             <div class="alert alert-success alert-dismissible" role="alert">
               <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-              <?php echo $this->session->flashdata('success'); ?>
+              <?php echo $this->session->flashdata("success"); ?>
             </div>
-          <?php elseif($this->session->flashdata('error')): ?>
+          <?php elseif($this->session->flashdata("error")): ?>
             <div class="alert alert-error alert-dismissible" role="alert">
               <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-              <?php echo $this->session->flashdata('error'); ?>
+              <?php echo $this->session->flashdata("error"); ?>
             </div>
           <?php endif; ?>
 
@@ -36,7 +36,7 @@
             <div class="box-header">
               <h3 class="box-title">Add Group</h3>
             </div>
-            <form role="form" action="<?php base_url('groups/create') ?>" method="post">
+            <form role="form" action="<?php base_url("groups/create") ?>" method="post">
               <div class="box-body">
 
                 <?php echo validation_errors(); ?>
@@ -115,6 +115,15 @@
                         <td><input type="checkbox" name="permission[]" id="permission" value="viewOrder" class="minimal"></td>
                         <td><input type="checkbox" name="permission[]" id="permission" value="deleteOrder" class="minimal"></td>
                       </tr>
+                      <!-- === Add Order Requests Permissions Row === -->
+                      <tr>
+                        <td>Order Requests</td>
+                        <td> - </td> <!-- No Create action from group UI -->
+                        <td><input type="checkbox" name="permission[]" id="permission" value="fulfillOrderRequest" class="minimal"></td> <!-- Update maps to Fulfill -->
+                        <td><input type="checkbox" name="permission[]" id="permission" value="viewOrderRequest" class="minimal"></td>
+                        <td> - </td> <!-- No Delete action from group UI -->
+                      </tr>
+                      <!-- === End Order Requests Permissions Row === -->
                       <tr>
                         <td>Reports</td>
                         <td> - </td>
@@ -152,7 +161,7 @@
 
               <div class="box-footer">
                 <button type="submit" class="btn btn-primary">Save Changes</button>
-                <a href="<?php echo base_url('groups/') ?>" class="btn btn-warning">Back</a>
+                <a href="<?php echo base_url("groups/") ?>" class="btn btn-warning">Back</a>
               </div>
             </form>
           </div>
@@ -170,13 +179,14 @@
 
 <script type="text/javascript">
   $(document).ready(function() {
-    $("#mainGroupNav").addClass('active');
-    $("#addGroupNav").addClass('active');
+    $("#mainGroupNav").addClass("active");
+    $("#addGroupNav").addClass("active");
 
-    $('input[type="checkbox"].minimal').iCheck({
-      checkboxClass: 'icheckbox_minimal-blue',
-      radioClass   : 'iradio_minimal-blue'
+    $("input[type=\"checkbox\"].minimal").iCheck({
+      checkboxClass: "icheckbox_minimal-blue",
+      radioClass   : "iradio_minimal-blue"
     });
   });
 </script>
+
 

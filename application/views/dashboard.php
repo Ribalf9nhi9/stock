@@ -1,7 +1,7 @@
 
 
   <!-- Content Wrapper. Contains page content -->
-  <div class="content-wrapper">
+  <div  style="background-color: #ade9f1;" class="content-wrapper">
     <!-- Content Header (Page header) -->
     <section class="content-header">
       <h1>
@@ -15,14 +15,14 @@
     </section>
 
     <!-- Main content -->
-    <section class="content">
+    <section  class="content" >
       <!-- Small boxes (Stat box) -->
       <?php if($is_admin == true): ?>
 
         <div class="row">
           <div class="col-lg-3 col-xs-6">
             <!-- small box -->
-            <div class="small-box bg-aqua">
+            <div style="border-radius:20px;"class="small-box bg-aqua">
               <div class="inner">
                 <h3><?php echo $total_products ?></h3>
 
@@ -37,7 +37,7 @@
           <!-- ./col -->
           <div class="col-lg-3 col-xs-6">
             <!-- small box -->
-            <div class="small-box bg-green">
+            <div style="border-radius:20px;"class="small-box bg-green">
               <div class="inner">
                 <h3><?php echo $total_paid_orders ?></h3>
 
@@ -52,7 +52,7 @@
           <!-- ./col -->
           <div class="col-lg-3 col-xs-6">
             <!-- small box -->
-            <div class="small-box bg-yellow">
+            <div style="border-radius:20px;" class="small-box bg-yellow">
               <div class="inner">
                 <h3><?php echo $total_users; ?></h3>
 
@@ -67,7 +67,7 @@
           <!-- ./col -->
           <div class="col-lg-3 col-xs-6">
             <!-- small box -->
-            <div class="small-box bg-red">
+            <div style="border-radius:20px; " class="small-box bg-red">
               <div class="inner">
                 <h3><?php echo $total_stores ?></h3>
 
