@@ -17,12 +17,9 @@ class Products extends Admin_Controller
 		$this->load->model("model_category");
 		$this->load->model("model_stores");
 		$this->load->model("model_attributes");
-        $this->load->model("model_order_requests"); // Load the new model
+        $this->load->model("model_order_requests"); 
 	}
 
-    /* 
-    * It only redirects to the manage product page
-    */
     public function index()
     {
         if (!in_array("viewProduct", $this->permission)) {
@@ -31,28 +28,27 @@ class Products extends Admin_Controller
     
         $this->data["page_title"] = "Manage Products";
     
-        // Fetch all products
-        $this->data["products"] = $this->model_products->getProductData();
+        // Fetch all products (original functionality for the main table)
+        // $this->data["products"] = $this->model_products->getProductData(); // This might not be needed if table is ajax based
     
-        // Fetch products with negative quantities
+        // Fetch products with negative quantities (original functionality)
         $this->data["negative_products"] = $this->model_products->getNegativeQuantityProducts();
+
+        // Fetch low stock products for the alert modal
+        $this->data["low_stock_alert_products"] = $this->model_products->getLowStockProducts();
     
         $this->render_template("products/index", $this->data);
     }
-    /*
-    * It Fetches the products data from the product table 
-    * this function is called from the datatable ajax function
-    */
+
 	public function fetchProductData()
 	{
 		$result = array("data" => array());
 
-		$data = $this->model_products->getProductData();
+		$data = $this->model_products->getProductData(); // This now includes category_default_reorder_point
 
 		foreach ($data as $key => $value) {
 
             $store_data = $this->model_stores->getStoresData($value["store_id"]);
-			// button
             $buttons = "";
             if(in_array("updateProduct", $this->permission)) {
     			$buttons .= 
@@ -64,7 +60,6 @@ class Products extends Admin_Controller
                     " <button type=\"button\" class=\"btn btn-default\" onclick=\"removeFunc(".$value["id"].")\" data-toggle=\"modal\" data-target=\"#removeModal\"><i class=\"fa fa-trash\"></i></button>";
             }
 			
-
 			$img = 
                 "<img src=\"".base_url($value["image"])."\" alt=\"".$value["name"]."\" class=\"img-circle\" width=\"50\" height=\"50\" />";
 
@@ -73,13 +68,18 @@ class Products extends Admin_Controller
                 "<span class=\"label label-warning\">Inactive</span>";
 
             $qty_status = "";
-            // Adjusted logic to show danger for negative, warning for low (0-10)
+            $effective_reorder_point = null;
+            if (isset($value["reorder_point"]) && $value["reorder_point"] !== null && $value["reorder_point"] > 0) {
+                $effective_reorder_point = (int)$value["reorder_point"];
+            } elseif (isset($value["category_default_reorder_point"]) && $value["category_default_reorder_point"] !== null && $value["category_default_reorder_point"] > 0) {
+                $effective_reorder_point = (int)$value["category_default_reorder_point"];
+            }
+
             if($value["qty"] < 0) {
                 $qty_status = "<span class=\"label label-danger\">Negative!</span>";
-            } else if($value["qty"] <= 10) {
-                $qty_status = "<span class=\"label label-warning\">Low!</span>";
+            } else if ($effective_reorder_point !== null && $value["qty"] <= $effective_reorder_point) {
+                $qty_status = "<span class=\"label label-warning\">Low Stock!</span>";
             } 
-
 
 			$result["data"][$key] = array(
 				$img,
@@ -91,58 +91,47 @@ class Products extends Admin_Controller
 				$availability,
 				$buttons
 			);
-		} // /foreach
+		} 
 
-		// Set header to application/json
         header("Content-Type: application/json");
-		// Encode and echo the result
         echo json_encode($result);
 	}	
 
-    /*
-    * If the validation is not valid, then it redirects to the create page.
-    * If the validation for each input field is valid then it inserts the data into the database 
-    * and it stores the operation message into the session flashdata and display on the manage product page
-    */
 	public function create()
 	{
-		// Check permission
         if(!in_array("createProduct", $this->permission)) {
             redirect("dashboard", "refresh");
         }
 
-        // Set validation rules
 		$this->form_validation->set_rules("product_name", "Product name", "trim|required");
 		$this->form_validation->set_rules("sku", "SKU", "trim|required");
 		$this->form_validation->set_rules("price", "Price", "trim|required");
-		$this->form_validation->set_rules("qty", "Qty", "trim|required|integer"); // Ensure qty is integer
+		$this->form_validation->set_rules("qty", "Qty", "trim|required|integer");
+        $this->form_validation->set_rules("reorder_point", "Reorder Point", "trim|integer|greater_than_equal_to[0]"); // Validation for reorder_point
         $this->form_validation->set_rules("store", "Store", "trim|required");
 		$this->form_validation->set_rules("availability", "Availability", "trim|required");
 		
 	
         if ($this->form_validation->run() == TRUE) {
-            // true case: validation passed
-        	$upload_image = $this->upload_image(); // Handle image upload
+        	$upload_image = $this->upload_image();
 
-            // Prepare data for insertion
         	$data = array(
         		"name" => $this->input->post("product_name"),
         		"sku" => $this->input->post("sku"),
         		"price" => $this->input->post("price"),
         		"qty" => $this->input->post("qty"),
+                "reorder_point" => ($this->input->post("reorder_point") === "" || $this->input->post("reorder_point") === null) ? null : (int)$this->input->post("reorder_point"),
         		"image" => $upload_image,
         		"description" => $this->input->post("description"),
-        		"attribute_value_id" => json_encode($this->input->post("attributes_value_id")), // Encode arrays as JSON
-        		"brand_id" => json_encode($this->input->post("brands")), // Encode arrays as JSON
-        		"category_id" => json_encode($this->input->post("category")), // Encode arrays as JSON
+        		"attribute_value_id" => json_encode($this->input->post("attributes_value_id")),
+        		"brand_id" => json_encode($this->input->post("brands")),
+        		"category_id" => json_encode($this->input->post("category")),
                 "store_id" => $this->input->post("store"),
         		"availability" => $this->input->post("availability"),
         	);
 
-            // Create product in database
         	$create = $this->model_products->create($data);
         	
-            // Handle result
             if($create == true) {
         		$this->session->set_flashdata("success", "Successfully created");
         		redirect("products/", "refresh");
@@ -153,9 +142,6 @@ class Products extends Admin_Controller
         	}
         }
         else {
-            // false case: validation failed
-
-        	// Prepare data for the create form view
         	$attribute_data = $this->model_attributes->getActiveAttributeData();
         	$attributes_final_data = array();
         	foreach ($attribute_data as $k => $v) {
@@ -169,102 +155,77 @@ class Products extends Admin_Controller
 			$this->data["category"] = $this->model_category->getActiveCategroy();        	
 			$this->data["stores"] = $this->model_stores->getActiveStore();        	
 
-            // Render the create view with data and validation errors
             $this->render_template("products/create", $this->data);
         }	
 	}
 
-    /*
-    * This function is invoked from another function to upload the image into the assets folder
-    * and returns the image path
-    */
 	public function upload_image()
     {
-    	// Configuration for image upload
         $config["upload_path"] = "assets/images/product_image";
-        $config["file_name"] =  uniqid(); // Generate unique file name
+        $config["file_name"] =  uniqid();
         $config["allowed_types"] = "gif|jpg|png";
-        $config["max_size"] = "1000"; // Max size in KB
-        // $config["max_width"]  = "1024";
-        // $config["max_height"]  = "768";
+        $config["max_size"] = "1000";
 
         $this->load->library("upload", $config);
         
-        // Perform upload
         if ( ! $this->upload->do_upload("product_image"))
         {
-            // Upload failed
             $error = $this->upload->display_errors();
-            // Return error message (consider logging or handling more gracefully)
             return $error; 
         }
         else
         {
-            // Upload successful
             $data = array("upload_data" => $this->upload->data());
             $type = explode(".", $_FILES["product_image"]["name"]);
-            $type = $type[count($type) - 1]; // Get file extension
+            $type = $type[count($type) - 1];
             
-            // Construct the full path to the uploaded image
             $path = $config["upload_path"]."/".$config["file_name"].".".$type;
-            return ($data == true) ? $path : false; // Return path if successful         
+            return ($data == true) ? $path : false;       
         }
     }
 
-    /*
-    * If the validation is not valid, then it redirects to the edit product page 
-    * If the validation is successfully then it updates the data into the database 
-    * and it stores the operation message into the session flashdata and display on the manage product page
-    */
 	public function update($product_id)
 	{      
-        // Check permission
         if(!in_array("updateProduct", $this->permission)) {
             redirect("dashboard", "refresh");
         }
 
-        // Check if product ID is provided
         if(!$product_id) {
             redirect("dashboard", "refresh");
         }
 
-        // Set validation rules
         $this->form_validation->set_rules("product_name", "Product name", "trim|required");
         $this->form_validation->set_rules("sku", "SKU", "trim|required");
         $this->form_validation->set_rules("price", "Price", "trim|required");
-        $this->form_validation->set_rules("qty", "Qty", "trim|required|integer"); // Ensure qty is integer
+        $this->form_validation->set_rules("qty", "Qty", "trim|required|integer");
+        $this->form_validation->set_rules("reorder_point", "Reorder Point", "trim|integer|greater_than_equal_to[0]"); // Validation for reorder_point
         $this->form_validation->set_rules("store", "Store", "trim|required");
         $this->form_validation->set_rules("availability", "Availability", "trim|required");
 
         if ($this->form_validation->run() == TRUE) {
-            // true case: validation passed
             
-            // Prepare data for update
             $data = array(
                 "name" => $this->input->post("product_name"),
                 "sku" => $this->input->post("sku"),
                 "price" => $this->input->post("price"),
                 "qty" => $this->input->post("qty"),
+                "reorder_point" => ($this->input->post("reorder_point") === "" || $this->input->post("reorder_point") === null) ? null : (int)$this->input->post("reorder_point"),
                 "description" => $this->input->post("description"),
-                "attribute_value_id" => json_encode($this->input->post("attributes_value_id")), // Encode arrays as JSON
-                "brand_id" => json_encode($this->input->post("brands")), // Encode arrays as JSON
-                "category_id" => json_encode($this->input->post("category")), // Encode arrays as JSON
+                "attribute_value_id" => json_encode($this->input->post("attributes_value_id")),
+                "brand_id" => json_encode($this->input->post("brands")),
+                "category_id" => json_encode($this->input->post("category")),
                 "store_id" => $this->input->post("store"),
                 "availability" => $this->input->post("availability"),
             );
 
-            // Handle image upload if a new image is provided
             if($_FILES["product_image"]["size"] > 0) {
                 $upload_image = $this->upload_image();
                 $upload_image_data = array("image" => $upload_image);
-                // Update image path in database first
                 $this->model_products->update($upload_image_data, $product_id);
             }
 
-            // Update product data in database
             $update = $this->model_products->update($data, $product_id);
             
-            // Handle result
             if($update == true) {
                 $this->session->set_flashdata("success", "Successfully updated");
                 redirect("products/", "refresh");
@@ -275,9 +236,7 @@ class Products extends Admin_Controller
             }
         }
         else {
-            // false case: validation failed
             
-            // Prepare data for the edit form view
             $attribute_data = $this->model_attributes->getActiveAttributeData();
             $attributes_final_data = array();
             foreach ($attribute_data as $k => $v) {
@@ -291,35 +250,25 @@ class Products extends Admin_Controller
             $this->data["category"] = $this->model_category->getActiveCategroy();           
             $this->data["stores"] = $this->model_stores->getActiveStore();          
 
-            // Get existing product data
             $product_data = $this->model_products->getProductData($product_id);
             $this->data["product_data"] = $product_data;
             
-            // Render the edit view with data and validation errors
             $this->render_template("products/edit", $this->data); 
         }   
 	}
 
-    /*
-    * It removes the data from the database
-    * and it returns the response into the json format
-    */
 	public function remove()
 	{
-        // Check permission
         if(!in_array("deleteProduct", $this->permission)) {
             redirect("dashboard", "refresh");
         }
         
-        // Get product ID from POST request
         $product_id = $this->input->post("product_id");
 
         $response = array();
         if($product_id) {
-            // Attempt to remove product from database
             $delete = $this->model_products->remove($product_id);
             
-            // Prepare response based on result
             if($delete == true) {
                 $response["success"] = true;
                 $response["messages"] = "Successfully removed"; 
@@ -330,23 +279,16 @@ class Products extends Admin_Controller
             }
         }
         else {
-            // No product ID provided
             $response["success"] = false;
             $response["messages"] = "Refresh the page again!!";
         }
 
-        // Set header and echo JSON response
         header("Content-Type: application/json");
         echo json_encode($response);
 	}
 
-    /*
-    * Handles the AJAX request to create an order request for a product with negative stock.
-    */
     public function createOrderRequest()
     {
-        // Check permission (e.g., require viewProduct or a specific permission)
-        // Using viewProduct for now, adjust as needed
         if(!in_array("viewProduct", $this->permission)) {
             $response["success"] = false;
             $response["messages"] = "Permission denied.";
@@ -356,7 +298,7 @@ class Products extends Admin_Controller
         }
 
         $product_id = $this->input->post("product_id");
-        $user_id = $this->session->userdata("id"); // Get current user ID
+        $user_id = $this->session->userdata("id");
 
         $response = array();
 
@@ -364,22 +306,18 @@ class Products extends Admin_Controller
             $response["success"] = false;
             $response["messages"] = "Invalid Product ID.";
         } else {
-            // Get product data to find the negative quantity
             $product_data = $this->model_products->getProductData($product_id);
 
             if ($product_data && $product_data["qty"] < 0) {
-                $required_qty = abs($product_data["qty"]); // Calculate needed quantity
+                $required_qty = abs($product_data["qty"]);
 
-                // Prepare data for the order_requests table
                 $request_data = array(
                     "product_id" => $product_id,
                     "required_qty" => $required_qty,
                     "requested_by_user_id" => $user_id,
-                    "status" => "pending" // Default status
-                    // request_timestamp is handled by DB default
+                    "status" => "pending"
                 );
 
-                // Create the order request using the new model
                 $create_success = $this->model_order_requests->create($request_data);
 
                 if ($create_success) {
@@ -399,32 +337,4 @@ class Products extends Admin_Controller
         echo json_encode($response);
     }
 
-    // --- Keep other methods like confirmOrderAndUpdateQty and flagForReorder for reference or potential future use ---
-    // --- but they are not used in the current notification workflow ---
-
-    /*
-    * DEPRECATED - Handles the AJAX request to update product quantity directly.
-    */
-    public function confirmOrderAndUpdateQty()
-    {
-       // ... (code remains but is not called by the current frontend setup)
-       $response["success"] = false;
-       $response["messages"] = "This function is deprecated.";
-       header("Content-Type: application/json");
-       echo json_encode($response);
-    }
-
-    /*
-    * DEPRECATED - Handles the AJAX request to flag a product using needs_reorder column.
-    */
-    public function flagForReorder()
-    {
-        // ... (code remains but is not called by the current frontend setup)
-        $response["success"] = false;
-        $response["messages"] = "This function is deprecated.";
-        header("Content-Type: application/json");
-        echo json_encode($response);
-    }
-
 }
-

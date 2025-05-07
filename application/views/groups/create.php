@@ -43,7 +43,7 @@
 
                 <div class="form-group">
                   <label for="group_name">Group Name</label>
-                  <input type="text" class="form-control" id="group_name" name="group_name" placeholder="Enter group name">
+                  <input type="text" class="form-control" id="group_name" name="group_name" placeholder="Enter group name" autocomplete="off">
                 </div>
                 <div class="form-group">
                   <label for="permission">Permission</label>
@@ -152,6 +152,15 @@
                         <td> - </td>
                         <td> - </td>
                       </tr>
+                      <!-- === Add Sidebar Stock Alerts Permission Row === -->
+                      <tr>
+                        <td>Sidebar Stock Alerts</td>
+                        <td> - </td>
+                        <td> - </td>
+                        <td><input type="checkbox" name="permission[]" id="permission" value="viewSidebarStockAlerts" class="minimal"></td>
+                        <td> - </td>
+                      </tr>
+                      <!-- === End Sidebar Stock Alerts Permission Row === -->
                     </tbody>
                   </table>
                   

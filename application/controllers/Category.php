@@ -15,12 +15,8 @@ class Category extends Admin_Controller
 		$this->load->model('model_category');
 	}
 
-	/* 
-	* It only redirects to the manage category page
-	*/
 	public function index()
 	{
-
 		if(!in_array('viewCategory', $this->permission)) {
 			redirect('dashboard', 'refresh');
 		}
@@ -28,26 +24,15 @@ class Category extends Admin_Controller
 		$this->render_template('category/index', $this->data);	
 	}	
 
-	/*
-	* It checks if it gets the category id and retreives
-	* the category information from the category model and 
-	* returns the data into json format. 
-	* This function is invoked from the view page.
-	*/
 	public function fetchCategoryDataById($id) 
 	{
 		if($id) {
 			$data = $this->model_category->getCategoryData($id);
 			echo json_encode($data);
 		}
-
-		return false;
+		// Removed return false as it's not standard for CI controller methods outputting JSON
 	}
 
-	/*
-	* Fetches the category value from the category table 
-	* this function is called from the datatable ajax function
-	*/
 	public function fetchCategoryData()
 	{
 		$result = array('data' => array());
@@ -56,7 +41,6 @@ class Category extends Admin_Controller
 
 		foreach ($data as $key => $value) {
 
-			// button
 			$buttons = '';
 
 			if(in_array('updateCategory', $this->permission)) {
@@ -72,19 +56,15 @@ class Category extends Admin_Controller
 
 			$result['data'][$key] = array(
 				$value['name'],
+                isset($value['default_reorder_point']) ? $value['default_reorder_point'] : 'N/A', // Display default reorder point
 				$status,
 				$buttons
 			);
-		} // /foreach
+		} 
 
 		echo json_encode($result);
 	}
 
-	/*
-	* Its checks the category form validation 
-	* and if the validation is successfully then it inserts the data into the database 
-	* and returns the json format operation messages
-	*/
 	public function create()
 	{
 		if(!in_array('createCategory', $this->permission)) {
@@ -95,13 +75,15 @@ class Category extends Admin_Controller
 
 		$this->form_validation->set_rules('category_name', 'Category name', 'trim|required');
 		$this->form_validation->set_rules('active', 'Active', 'trim|required');
+        $this->form_validation->set_rules('default_reorder_point', 'Default Reorder Point', 'trim|integer|greater_than_equal_to[0]');
 
 		$this->form_validation->set_error_delimiters('<p class="text-danger">','</p>');
 
         if ($this->form_validation->run() == TRUE) {
         	$data = array(
         		'name' => $this->input->post('category_name'),
-        		'active' => $this->input->post('active'),	
+        		'active' => $this->input->post('active'),
+                'default_reorder_point' => ($this->input->post('default_reorder_point') === "" || $this->input->post('default_reorder_point') === null) ? null : (int)$this->input->post('default_reorder_point'),
         	);
 
         	$create = $this->model_category->create($data);
@@ -111,7 +93,7 @@ class Category extends Admin_Controller
         	}
         	else {
         		$response['success'] = false;
-        		$response['messages'] = 'Error in the database while creating the brand information';			
+        		$response['messages'] = 'Error in the database while creating the category information';			
         	}
         }
         else {
@@ -124,14 +106,8 @@ class Category extends Admin_Controller
         echo json_encode($response);
 	}
 
-	/*
-	* Its checks the category form validation 
-	* and if the validation is successfully then it updates the data into the database 
-	* and returns the json format operation messages
-	*/
 	public function update($id)
 	{
-
 		if(!in_array('updateCategory', $this->permission)) {
 			redirect('dashboard', 'refresh');
 		}
@@ -141,6 +117,7 @@ class Category extends Admin_Controller
 		if($id) {
 			$this->form_validation->set_rules('edit_category_name', 'Category name', 'trim|required');
 			$this->form_validation->set_rules('edit_active', 'Active', 'trim|required');
+            $this->form_validation->set_rules('edit_default_reorder_point', 'Default Reorder Point', 'trim|integer|greater_than_equal_to[0]');
 
 			$this->form_validation->set_error_delimiters('<p class="text-danger">','</p>');
 
@@ -148,6 +125,7 @@ class Category extends Admin_Controller
 	        	$data = array(
 	        		'name' => $this->input->post('edit_category_name'),
 	        		'active' => $this->input->post('edit_active'),	
+                    'default_reorder_point' => ($this->input->post('edit_default_reorder_point') === "" || $this->input->post('edit_default_reorder_point') === null) ? null : (int)$this->input->post('edit_default_reorder_point'),
 	        	);
 
 	        	$update = $this->model_category->update($data, $id);
@@ -157,7 +135,7 @@ class Category extends Admin_Controller
 	        	}
 	        	else {
 	        		$response['success'] = false;
-	        		$response['messages'] = 'Error in the database while updated the brand information';			
+	        		$response['messages'] = 'Error in the database while updated the category information';			
 	        	}
 	        }
 	        else {
@@ -175,10 +153,6 @@ class Category extends Admin_Controller
 		echo json_encode($response);
 	}
 
-	/*
-	* It removes the category information from the database 
-	* and returns the json format operation messages
-	*/
 	public function remove()
 	{
 		if(!in_array('deleteCategory', $this->permission)) {
@@ -196,7 +170,7 @@ class Category extends Admin_Controller
 			}
 			else {
 				$response['success'] = false;
-				$response['messages'] = "Error in the database while removing the brand information";
+				$response['messages'] = "Error in the database while removing the category information";
 			}
 		}
 		else {

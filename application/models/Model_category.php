@@ -32,27 +32,40 @@ class Model_category extends CI_Model
 	public function create($data)
 	{
 		if($data) {
-			$insert = $this->db->insert('categories', $data);
+			// Ensure default_reorder_point is either an integer or null
+			if (isset($data["default_reorder_point"]) && $data["default_reorder_point"] === 
+                "") {
+				$data["default_reorder_point"] = null;
+			}
+			$insert = $this->db->insert("categories", $data);
 			return ($insert == true) ? true : false;
 		}
+		return false; // Added return false if no data
 	}
 
 	public function update($data, $id)
 	{
 		if($data && $id) {
-			$this->db->where('id', $id);
-			$update = $this->db->update('categories', $data);
+			// Ensure default_reorder_point is either an integer or null
+			if (isset($data["default_reorder_point"]) && $data["default_reorder_point"] === 
+                "") {
+				$data["default_reorder_point"] = null;
+			}
+			$this->db->where("id", $id);
+			$update = $this->db->update("categories", $data);
 			return ($update == true) ? true : false;
 		}
+		return false; // Added return false if no data or id
 	}
 
 	public function remove($id)
 	{
 		if($id) {
-			$this->db->where('id', $id);
-			$delete = $this->db->delete('categories');
+			$this->db->where("id", $id);
+			$delete = $this->db->delete("categories");
 			return ($delete == true) ? true : false;
 		}
+		return false; // Added return false if no id
 	}
 
 }

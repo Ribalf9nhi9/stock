@@ -77,6 +77,27 @@
 </div>
 <!-- /.content-wrapper -->
 
+<!-- Proactive Low Stock Alert Modal -->
+<div class="modal fade" id="proactiveLowStockModal" tabindex="-1" role="dialog" aria-labelledby="proactiveLowStockModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-white">
+        <h5 class="modal-title" id="proactiveLowStockModalLabel">Proactive Low Stock Alert</h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>The following products are at or below their reorder point and require attention:</p>
+        <div id="proactiveLowStockMessage"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Acknowledge & Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- Negative Quantity Alert Modal (Workflow Version) -->
 <div class="modal fade" id="negativeQuantityModal" tabindex="-1" role="dialog" aria-labelledby="negativeQuantityModalLabel" aria-hidden="true">
@@ -90,9 +111,8 @@
       </div>
       <div class="modal-body">
         <p>The following products have negative stock quantities. Click "Request Reorder" to notify the order group:</p>
-        <!-- Body Content Area -->
         <div id="negativeQuantityMessage"></div> 
-        <div id="reorderMessages" class="mt-2"></div> <!-- Area for success/error messages -->
+        <div id="reorderMessages" class="mt-2"></div> 
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -138,11 +158,36 @@ $(document).ready(function() {
 
   $("#mainProductNav").addClass("active");
 
-  // initialize the datatable 
   manageTable = $("#manageTable").DataTable({
-    "ajax": base_url + "products/fetchProductData", // Assuming this endpoint works
+    "ajax": base_url + "products/fetchProductData",
     "order": []
   });
+
+  // --- Proactive Low Stock Alert Logic ---
+  <?php if (!empty($low_stock_alert_products)): ?>
+    let proactiveMessageHtml = `<ul class="list-group">`;
+    <?php 
+      foreach ($low_stock_alert_products as $product):
+        $product_name_escaped = htmlspecialchars($product["name"], ENT_QUOTES, "UTF-8");
+        $product_sku_escaped = htmlspecialchars($product["sku"], ENT_QUOTES, "UTF-8");
+        $product_qty = (int)$product["qty"];
+        $reorder_point_product = isset($product["reorder_point"]) && $product["reorder_point"] !== null ? (int)$product["reorder_point"] : null;
+        $reorder_point_category = isset($product["category_reorder_point"]) && $product["category_reorder_point"] !== null ? (int)$product["category_reorder_point"] : null;
+        $effective_reorder_point = $reorder_point_product ?? $reorder_point_category ?? "N/A";
+    ?>
+      proactiveMessageHtml += 
+        `<li class="list-group-item">
+          <strong>${decodeURIComponent("<?php echo rawurlencode($product_name_escaped); ?>")} (SKU: ${decodeURIComponent("<?php echo rawurlencode($product_sku_escaped); ?>")})</strong><br>
+          Current Quantity: <?php echo $product_qty; ?><br>
+          Reorder Point: <?php echo $effective_reorder_point; ?>
+        </li>`;
+    <?php endforeach; ?>
+    proactiveMessageHtml += `</ul>`;
+
+    $("#proactiveLowStockMessage").html(proactiveMessageHtml);
+    $("#proactiveLowStockModal").modal("show");
+  <?php endif; ?>
+
 
   // --- Negative Stock Alert Logic (Workflow Version) ---
   <?php if (!empty($negative_products)): ?>
@@ -153,58 +198,46 @@ $(document).ready(function() {
         $product_id = $product["id"]; 
         $product_qty = $product["qty"];
     ?>
-      // Generate list item with Request Reorder button
       messageHtml += 
         `<li class="list-group-item d-flex justify-content-between align-items-center" id="reorder-item-<?php echo $product_id; ?>">
-          <span><?php echo $product_name_escaped; ?> (Current: <?php echo $product_qty; ?>)</span>
+          <span>${decodeURIComponent("<?php echo rawurlencode($product_name_escaped); ?>")} (Current: <?php echo $product_qty; ?>)</span>
           <button class="btn btn-warning btn-sm request-reorder-btn" data-product-id="<?php echo $product_id; ?>" type="button">Request Reorder</button>
         </li>`;
     <?php endforeach; ?>
     messageHtml += `</ul>`;
 
-    // Populate the modal with the generated HTML
     $("#negativeQuantityMessage").html(messageHtml);
-
-    // Show the modal
     $("#negativeQuantityModal").modal("show");
   <?php endif; ?>
 
-  // --- Request Reorder Button Click Handler (Workflow Version) ---
   $(document).on("click", ".request-reorder-btn", function() {
     var button = $(this);
     var productId = button.data("product-id");
     var listItem = button.closest("li");
 
-    // Clear previous messages
     $("#reorderMessages").html(""); 
     
-    // Disable button during processing
     button.prop("disabled", true).text("Processing...").removeClass("btn-warning").addClass("btn-secondary");
     
-    // AJAX call to backend endpoint (products/createOrderRequest)
     $.ajax({
-      // IMPORTANT: Including index.php/ based on previous 404 error. Remove if .htaccess is correctly configured.
-      url: base_url + "index.php/products/createOrderRequest", 
+      url: base_url + "products/createOrderRequest", // Corrected: Removed index.php if base_url handles it
       type: "POST",
       data: { 
-        product_id: productId 
+        product_id: productId,
+        "<?php echo $this->security->get_csrf_token_name(); ?>": "<?php echo $this->security->get_csrf_hash(); ?>" // Added CSRF token
       },
       dataType: "json",
       success: function(response) {
         if(response.success) {
           $("#reorderMessages").html(`<div class="alert alert-success alert-sm">Order request created for product ${productId}.</div>`);
-          // Change button appearance permanently on success
           button.text("Reorder Requested").removeClass("btn-secondary").addClass("btn-success"); 
         } else {
-          // Re-enable button on failure
           button.prop("disabled", false).text("Request Reorder").removeClass("btn-secondary").addClass("btn-warning");
-          // Show error message from backend
           $("#reorderMessages").html(`<div class="alert alert-danger alert-sm">Error: ${response.messages}</div>`);
           console.error("Backend failed to create order request for product: " + productId + ". Error: " + response.messages);
         }
       },
       error: function(jqXHR, textStatus, errorThrown) {
-        // Handle AJAX errors (e.g., network issues, server errors, 404)
         button.prop("disabled", false).text("Request Reorder").removeClass("btn-secondary").addClass("btn-warning");
         $("#reorderMessages").html(`<div class="alert alert-danger alert-sm">AJAX Error: Could not create order request. ${textStatus} - ${errorThrown}</div>`);
         console.error("AJAX error creating order request for product: " + productId + " - " + textStatus, errorThrown);
@@ -214,23 +247,21 @@ $(document).ready(function() {
 
 });
 
-
-// remove functions 
 function removeFunc(id)
 {
   if(id) {
     $("#removeForm").on("submit", function() {
 
       var form = $(this);
-
-      // remove the text-danger
       $(".text-danger").remove();
 
       $.ajax({
-        // IMPORTANT: Including index.php/ based on previous 404 error. Remove if .htaccess is correctly configured.
-        url: base_url + "index.php/" + form.attr("action"), // Assuming form action is relative
+        url: form.attr("action"), // Corrected: Use the form's action attribute directly
         type: form.attr("method"),
-        data: { product_id:id }, 
+        data: { 
+            product_id:id,
+            "<?php echo $this->security->get_csrf_token_name(); ?>": "<?php echo $this->security->get_csrf_hash(); ?>" // Added CSRF token
+        }, 
         dataType: "json",
         success:function(response) {
 
@@ -241,12 +272,8 @@ function removeFunc(id)
               "<button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button>"+
               "<strong> <span class=\"glyphicon glyphicon-ok-sign\"></span> </strong>"+response.messages+
             "</div>");
-
-            // hide the modal
             $("#removeModal").modal("hide");
-
           } else {
-
             $("#messages").html("<div class=\"alert alert-warning alert-dismissible\" role=\"alert\">"+
               "<button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button>"+
               "<strong> <span class=\"glyphicon glyphicon-exclamation-sign\"></span> </strong>"+response.messages+
@@ -266,6 +293,4 @@ function removeFunc(id)
   }
 }
 
-
 </script>
-
