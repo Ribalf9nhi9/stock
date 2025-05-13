@@ -89,6 +89,29 @@
                   <textarea type="text" class="form-control" id="description" name="description" placeholder="Enter description" autocomplete="off"><?php echo $product_data["description"]; ?></textarea>
                 </div>
 
+                <!-- Sales Forecast Section -->
+                <div class="box box-info">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">Demand Forecast (Last <?php echo isset($sales_forecast["historical_period_days_setting"]) ? $sales_forecast["historical_period_days_setting"] : 90; ?> Days)</h3>
+                    </div>
+                    <div class="box-body">
+                        <?php if(isset($sales_forecast) && !isset($sales_forecast["error"])): ?>
+                            <p><strong>Average Daily Sales:</strong> <?php echo $sales_forecast["avg_daily_sales"]; ?></p>
+                            <p><strong>Average Weekly Sales:</strong> <?php echo $sales_forecast["avg_weekly_sales"]; ?></p>
+                            <p><strong>Average Monthly Sales:</strong> <?php echo $sales_forecast["avg_monthly_sales"]; ?></p>
+                            <hr>
+                            <p><small>Total Quantity Sold in Period: <?php echo $sales_forecast["total_quantity_sold"]; ?></small></p>
+                            <p><small>Distinct Sale Days in Period: <?php echo $sales_forecast["distinct_sale_days_in_period"]; ?></small></p>
+                            <p><small>Actual Days in Data Span for Average: <?php echo $sales_forecast["actual_days_in_data_span"]; ?></small></p>
+                        <?php elseif(isset($sales_forecast["error"])): ?>
+                            <p class="text-danger">Error fetching forecast: <?php echo $sales_forecast["error"]; ?></p>
+                        <?php else: ?>
+                            <p>Sales forecast data is not available. This may be due to database connectivity issues or no sales data for the period.</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <!-- End Sales Forecast Section -->
+
                 <?php $attribute_id = json_decode($product_data["attribute_value_id"]); ?>
                 <?php if($attributes): ?>
                   <?php foreach ($attributes as $k => $v): ?>
@@ -170,20 +193,19 @@
     $("#mainProductNav").addClass("active");
     $("#manageProductNav").addClass("active");
 
-    // Note: The fileinput initialization script from create.php might be needed here if image update is complex.
-    // For simplicity, assuming basic file input is handled by the browser or a simpler setup for edit.
-    // If advanced features like preview on select are needed, the fileinput script from create.php should be adapted and included.
-     var btnCust = 
-        襖<button type=\"button\" class=\"btn btn-secondary\" title=\"Add picture tags\" onclick=\"alert("Call your custom code here.")\">\n            <i class=\"glyphicon glyphicon-tag\"></i>\n        </button>"; 
+    var btnCust = 
+        '<button type="button" class="btn btn-secondary" title="Add picture tags" onclick="alert("Call your custom code here.")">' +
+        '    <i class="glyphicon glyphicon-tag"></i>' +
+        '</button>'; 
     $("#product_image").fileinput({
         overwriteInitial: true,
         maxFileSize: 1500,
         showClose: false,
         showCaption: false,
-        browseLabel: 	iny,
-        removeLabel: 	iny,
-        browseIcon: 	iny<i class=\"glyphicon glyphicon-folder-open\"></i>	iny,
-        removeIcon: 	iny<i class=\"glyphicon glyphicon-remove\"></i>	iny,
+        browseLabel: "",
+        removeLabel: "",
+        browseIcon: "<i class=\"glyphicon glyphicon-folder-open\"></i>",
+        removeIcon: "<i class=\"glyphicon glyphicon-remove\"></i>",
         removeTitle: "Cancel or reset changes",
         elErrorContainer: "#kv-avatar-errors-1",
         msgErrorClass: "alert alert-block alert-danger",
@@ -194,3 +216,4 @@
 
   });
 </script>
+
